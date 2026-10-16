@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practical Sound Design: Expressive Synth Lead</title>
+    <style>
+        /* Coursera-inspired Academic UI */
+        :root {
+            --primary-blue: #0056D2;
+            --primary-hover: #00419e;
+            --bg-page: #FFFFFF;
+            --bg-panel: #F5F7FA;
+            --bg-success: #E6F4EA;
+            --text-main: #1F2431;
+            --text-muted: #63636B;
+            --text-success: #0D652D;
+            --border-color: #E2E6EA;
+            --border-success: #CEEAD6;
+            --focus-ring: rgba(0, 86, 210, 0.4);
+            
+            --synth-color: #9C27B0; 
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: var(--text-main);
+            background-color: var(--bg-page);
+            line-height: 1.5;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .simulator-container {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 { margin-top: 0; font-size: 1.5rem; font-weight: 600; }
+        
+        .mission-banner {
+            background-color: #FFF3CD;
+            color: #856404;
+            border: 1px solid #FFEEBA;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .mission-banner.success {
+            background-color: var(--bg-success);
+            color: var(--text-success);
+            border-color: var(--border-success);
+        }
+
+        .mission-list {
+            margin: 0.5rem 0 0 0; 
+            padding-left: 0; 
+            list-style: none;
+            font-size: 0.9rem;
+        }
+
+        .mission-list li {
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .check-icon {
+            color: #ccc;
+            font-weight: bold;
+        }
+
+        .check-icon.done {
+            color: var(--text-success);
+        }
+
+        .oscilloscope-container {
+            background: #111;
+            border: 2px solid var(--text-main);
+            border-radius: 6px;
+            padding: 0;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 180px;
+        }
+
+        .track-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            font-family: monospace;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #E1BEE7;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(156, 39, 176, 0.5);
+            z-index: 10;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-page);
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .control-group h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.95rem;
+            color: var(--primary-blue);
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .value-display { font-weight: bold; color: var(--synth-color); }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            accent-color: var(--synth-color);
+        }
+
+        .key-sub { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); }
+
+        .btn-trigger {
+            width: 100%;
+            border: 2px solid var(--text-main);
+            padding: 1.25rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.1s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: white;
+            color: var(--text-main);
+        }
+
+        .btn-trigger:hover { background: #f0f0f0; }
+        .btn-trigger:active, .btn-trigger.active { 
+            background: #e0e0e0; 
+            transform: translateY(3px); 
+            box-shadow: inset 0 3px 5px rgba(0,0,0,0.1); 
+            border-color: var(--synth-color);
+        }
+
+        .btn-trigger span {
+            font-size: 0.85rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+
+        @media (max-width: 768px) {
+            .controls-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <main class="simulator-container" aria-labelledby="sim-title">
+        <h2 id="sim-title">Interactive Challenge: Expressive Synth Lead</h2>
+        
+        <div id="mission-banner" class="mission-banner" role="status" aria-live="polite">
+            <span id="mission-icon" style="font-size: 1.5rem;">🎹</span>
+            <div id="mission-text">
+                <strong>Your Mission:</strong> The patch routing is ready! Act as the live performer. <strong>Hold the Spacebar (or click the button below)</strong> to sustain the note, then use the sliders to bring the sound to life:
+                <ul class="mission-list">
+                    <li><span id="check-pb" class="check-icon">○</span> Bend the pitch up or down (Pitch Bend)</li>
+                    <li><span id="check-mod" class="check-icon">○</span> Add deep vibrato & filter wobble (Mod Wheel > 100)</li>
+                    <li><span id="check-exp" class="check-icon">○</span> Perform a volume/brightness swell (Expression drops to 0, then back up)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="aria-live-feedback" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+        <div class="oscilloscope-container" aria-hidden="true">
+            <div class="track-label">AUDIO WAVEFORM (Observe Pitch and Amplitude changes)</div>
+            <canvas id="oscilloscope" width="800" height="180"></canvas>
+        </div>
+
+        <div class="controls-grid">
+            <!-- PB -->
+            <div class="control-group">
+                <h3>1. Pitch Bend Wheel</h3>
+                <label for="pb-slider">Pitch <span class="value-display" id="pb-val">0 st</span></label>
+                <input type="range" id="pb-slider" min="-2" max="2" step="0.1" value="0" aria-label="Pitch Bend Wheel" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="0">
+                <div class="key-sub">Mapped to: Osc Pitch (±2 semitones)</div>
+            </div>
+
+            <!-- Mod Wheel -->
+            <div class="control-group">
+                <h3>2. Modulation (CC 1)</h3>
+                <label for="mod-slider">LFO Depth <span class="value-display" id="mod-val">0</span></label>
+                <input type="range" id="mod-slider" min="0" max="127" step="1" value="0" aria-label="Modulation Wheel CC 1" aria-valuemin="0" aria-valuemax="127" aria-valuenow="0">
+                <div class="key-sub">Mapped to: Pitch & Filter Vibrato</div>
+            </div>
+
+            <!-- Expression -->
+            <div class="control-group">
+                <h3>3. Expression (CC 11)</h3>
+                <label for="exp-slider">Intensity <span class="value-display" id="exp-val">127</span></label>
+                <input type="range" id="exp-slider" min="0" max="127" step="1" value="127" aria-label="Expression Pedal CC 11" aria-valuemin="0" aria-valuemax="127" aria-valuenow="127">
+                <div class="key-sub">Mapped to: VCA Gain + VCF Cutoff</div>
+            </div>
+        </div>
+
+        <button id="btn-trigger" class="btn-trigger" aria-label="Press and hold spacebar or click to play note">
+            🎵 HOLD SPACEBAR TO PLAY
+            <span>(or click and hold this button)</span>
+        </button>
+    </main>
+
+    <script>
+        // --- State & Mission Trackers ---
+        const state = { pb: 0, cc1: 0, cc11: 127, isPlaying: false };
+        
+        const mission = {
+            bended: false,
+            modulated: false,
+            expDropped: false, 
+            swelled: false,    
+            completed: false
+        };
+
+        const sliders = {
+            pb: document.getElementById('pb-slider'),
+            cc1: document.getElementById('mod-slider'),
+            cc11: document.getElementById('exp-slider')
+        };
+        
+        const displays = {
+            pb: document.getElementById('pb-val'),
+            cc1: document.getElementById('mod-val'),
+            cc11: document.getElementById('exp-val')
+        };
+
+        const checks = {
+            pb: document.getElementById('check-pb'),
+            mod: document.getElementById('check-mod'),
+            exp: document.getElementById('check-exp')
+        };
+
+        const ariaLive = document.getElementById('aria-live-feedback');
+        const missionBanner = document.getElementById('mission-banner');
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        const btnTrigger = document.getElementById('btn-trigger');
+
+        let audioCtx, analyzer, animationId;
+        let activeOsc, activeFilter, activeVCA, lfoToPitchGain, lfoToFilterGain;
+
+        // --- Event Listeners for UI ---
+        Object.keys(sliders).forEach(key => {
+            sliders[key].addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state[key] = val;
+                sliders[key].setAttribute('aria-valuenow', val);
+                
+                displays[key].textContent = key === 'pb' 
+                    ? (val === 0 ? "0 st" : `${val > 0 ? '+' : ''}${val} st`) 
+                    : val;
+                
+                updateSynthEngine();
+                evaluateMission();
+            });
+
+            sliders[key].addEventListener('change', () => {
+                ariaLive.textContent = `${key} set to ${state[key]}`;
+            });
+        });
+
+        // --- Mission Validator ---
+        function evaluateMission() {
+            if (!state.isPlaying || mission.completed) return;
+
+            if (state.pb <= -1.5 || state.pb >= 1.5) {
+                if (!mission.bended) {
+                    mission.bended = true;
+                    checks.pb.textContent = "✔";
+                    checks.pb.classList.add("done");
+                }
+            }
+
+            if (state.cc1 >= 100) {
+                if (!mission.modulated) {
+                    mission.modulated = true;
+                    checks.mod.textContent = "✔";
+                    checks.mod.classList.add("done");
+                }
+            }
+
+            if (state.cc11 <= 20) mission.expDropped = true;
+            if (mission.expDropped && state.cc11 >= 100) {
+                if (!mission.swelled) {
+                    mission.swelled = true;
+                    checks.exp.textContent = "✔";
+                    checks.exp.classList.add("done");
+                }
+            }
+
+            if (mission.bended && mission.modulated && mission.swelled) {
+                mission.completed = true;
+                missionBanner.classList.add('success');
+                document.getElementById('mission-icon').textContent = '🏆';
+                document.getElementById('mission-text').innerHTML = "<strong>Mission Accomplished!</strong><br>You successfully utilized the 3-byte CC messaging architecture to transform a static wave into a living, breathing acoustic-style performance!";
+                ariaLive.textContent = "Mission Accomplished! You have successfully performed the expressive synth lead.";
+            }
+        }
+
+        // --- Audio Engine ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyzer = audioCtx.createAnalyser();
+                analyzer.fftSize = 2048;
+                drawOscilloscope(); 
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function calculateParams() {
+            const baseFreq = 440.0;
+            const currentFreq = baseFreq * Math.pow(2, state.pb / 12);
+            const expRatio = state.cc11 / 127;
+            const baseCutoff = 200 + (expRatio * 4000); 
+            const modRatio = state.cc1 / 127;
+            const lfoPitchDepth = modRatio * 15;
+            const lfoFilterDepth = modRatio * 1500;
+
+            return { currentFreq, expRatio, baseCutoff, modRatio, lfoPitchDepth, lfoFilterDepth };
+        }
+
+        function updateSynthEngine() {
+            if (!state.isPlaying || !audioCtx) return;
+            const p = calculateParams();
+            const now = audioCtx.currentTime;
+            
+            activeOsc.frequency.setTargetAtTime(p.currentFreq, now, 0.05);
+            activeVCA.gain.setTargetAtTime(p.expRatio, now, 0.05);
+            activeFilter.frequency.setTargetAtTime(p.baseCutoff, now, 0.05);
+            
+            lfoToPitchGain.gain.setTargetAtTime(p.lfoPitchDepth, now, 0.05);
+            lfoToFilterGain.gain.setTargetAtTime(p.lfoFilterDepth, now, 0.05);
+        }
+
+        function playNote() {
+            initAudio();
+            if (state.isPlaying) return;
+            state.isPlaying = true;
+            btnTrigger.classList.add('active');
+
+            const now = audioCtx.currentTime;
+            const p = calculateParams();
+
+            activeOsc = audioCtx.createOscillator();
+            activeFilter = audioCtx.createBiquadFilter();
+            activeVCA = audioCtx.createGain();
+            const activeLfo = audioCtx.createOscillator();
+            lfoToPitchGain = audioCtx.createGain();
+            lfoToFilterGain = audioCtx.createGain();
+
+            activeOsc.type = 'sawtooth';
+            activeOsc.frequency.value = p.currentFreq;
+            
+            activeFilter.type = 'lowpass';
+            activeFilter.frequency.value = p.baseCutoff;
+            activeFilter.Q.value = 1.5; 
+            
+            activeVCA.gain.setValueAtTime(0, now);
+            activeVCA.gain.linearRampToValueAtTime(p.expRatio, now + 0.05);
+
+            activeLfo.type = 'sine';
+            activeLfo.frequency.value = 5.5; 
+            
+            lfoToPitchGain.gain.value = p.lfoPitchDepth;
+            lfoToFilterGain.gain.value = p.lfoFilterDepth;
+
+            activeLfo.connect(lfoToPitchGain);
+            lfoToPitchGain.connect(activeOsc.frequency);
+            
+            activeLfo.connect(lfoToFilterGain);
+            lfoToFilterGain.connect(activeFilter.frequency);
+
+            activeOsc.connect(activeFilter);
+            activeFilter.connect(activeVCA);
+            activeVCA.connect(analyzer);
+            analyzer.connect(audioCtx.destination);
+
+            activeOsc.start(now);
+            activeLfo.start(now);
+            
+            activeOsc.lfoRef = activeLfo;
+        }
+
+        function releaseNote() {
+            if (!state.isPlaying) return;
+            state.isPlaying = false;
+            btnTrigger.classList.remove('active');
+            
+            if (!activeOsc || !activeVCA) return;
+            
+            const now = audioCtx.currentTime;
+            activeVCA.gain.cancelScheduledValues(now);
+            activeVCA.gain.setValueAtTime(activeVCA.gain.value, now);
+            activeVCA.gain.linearRampToValueAtTime(0, now + 0.1);
+            
+            activeOsc.stop(now + 0.15);
+            if(activeOsc.lfoRef) activeOsc.lfoRef.stop(now + 0.15);
+        }
+
+        // --- Mouse / Touch Interaction ---
+        btnTrigger.addEventListener('pointerdown', (e) => { e.preventDefault(); playNote(); });
+        window.addEventListener('pointerup', releaseNote);
+        btnTrigger.addEventListener('pointerleave', () => { if(state.isPlaying) releaseNote(); });
+        
+        // --- Global Keyboard Interaction (Spacebar) ---
+        window.addEventListener('keydown', (e) => { 
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault(); // Prevents page from scrolling down
+                if (!e.repeat) {
+                    playNote();
+                }
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => { 
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                releaseNote();
+            }
+        });
+
+        // --- Visualizer (Oscilloscope) ---
+        function drawOscilloscope() {
+            animationId = requestAnimationFrame(drawOscilloscope);
+            
+            const bufferLength = analyzer.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyzer.getByteTimeDomainData(dataArray);
+
+            ctx.fillStyle = '#111111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            const r = Math.min(255, 156 + state.cc1); 
+            const g = Math.max(39, 39 + (state.cc11 / 2));
+            const b = 176;
+            
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`; 
+            ctx.beginPath();
+
+            const sliceWidth = canvas.width * 1.0 / bufferLength;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0; 
+                const y = (v * canvas.height) / 2;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+                x += sliceWidth;
+            }
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+    </script>
+</body>
+</html>
